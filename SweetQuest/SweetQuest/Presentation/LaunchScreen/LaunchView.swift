@@ -1,48 +1,71 @@
 import SwiftUI
 import Combine
 
-struct LaunchScreen: View {
-    @State private var progress: Double = 0
-    @EnvironmentObject private var launchScreenState: LaunchScreenStateManager
-    let timer = Timer.publish(every: 0.2, on: .main, in: .common).autoconnect()
+struct SplashView: View {
+    @ObservedObject private var sweetIndicator = SweetLoadingIndicator.shared
     
     var body: some View {
-        VStack {
-            ProgressView(value: progress, total: 10)
-                .progressViewStyle(RoundedRectProgressViewStyle())
-                .frame(maxWidth: .infinity, alignment: .bottom)
-                .onReceive(timer) { _ in
-                    withAnimation(.linear(duration: 0.2)) {
-                        if progress < 10 {
-                            progress += 1
-                        } else {
-                            launchScreenState.dismiss()
-                        }
+        ZStack {
+            BackgroundImageView(imageName: "launchBG")
+            
+            VStack {
+                Spacer()
+                
+                VStack(spacing: 12) {
+                    SweetProgressBar(progress: sweetIndicator.progress)
+                    
+                    HStack {
+                        Text(sweetIndicator.statusText)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white)
+                        
+                        Spacer()
+                        
+                        Text("\(Int(sweetIndicator.progress * 100))%")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white)
                     }
                 }
+                .padding(.horizontal, 32)
+                .padding(.vertical, 20)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.black.opacity(0.5))
+                )
+                .padding(.horizontal, 24)
+                .padding(.bottom, 60)
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        .background(BackgroundImageView(imageName: "launchBG"))
     }
 }
-            
 
-struct RoundedRectProgressViewStyle: ProgressViewStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        ZStack(alignment: .leading) {
-            Capsule()
-                .frame(width: 300, height: 47)
-                .foregroundColor(.white)
-            
-            Capsule()
-                .frame(width: CGFloat(configuration.fractionCompleted ?? 0) * 300, height: 47)
-                .foregroundColor(.accent)
+struct SweetProgressBar: View {
+    let progress: Double
+    
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.white.opacity(0.3))
+                    .frame(height: 16)
+                
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.orange, Color.yellow],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: max(geometry.size.width * progress, 0), height: 16)
+                    .animation(.easeInOut(duration: 0.3), value: progress)
+                    .shadow(color: Color.orange.opacity(0.5), radius: 4, x: 0, y: 0)
+            }
         }
-        .padding()
+        .frame(height: 16)
     }
 }
 
 #Preview {
-    LaunchScreen()
-        .environmentObject(LaunchScreenStateManager())
+    SplashView()
 }

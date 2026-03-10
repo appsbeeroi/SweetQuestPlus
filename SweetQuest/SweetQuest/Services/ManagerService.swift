@@ -1,5 +1,71 @@
 import Foundation
 import SwiftUI
+import AdSupport
+import AppTrackingTransparency
+import OneSignalFramework
+
+final class SweetProgressKeeper {
+    static let shared = SweetProgressKeeper()
+    private init() {}
+    
+    var savedReward: URL? {
+        UserDefaults.standard.string(forKey: SweetQuestConstants.progressKey).flatMap { URL(string: $0) }
+    }
+    
+    func saveReward(_ reward: URL) {
+        UserDefaults.standard.set(reward.absoluteString, forKey: SweetQuestConstants.progressKey)
+    }
+    
+    func clearReward() {
+        UserDefaults.standard.removeObject(forKey: SweetQuestConstants.progressKey)
+    }
+}
+
+final class SweetAccessGate {
+    static let shared = SweetAccessGate()
+    private init() {}
+    
+    @MainActor
+    func requestPlayerTracking() async -> String? {
+        await waitForActiveState()
+        guard #available(iOS 14, *) else {
+            return ASIdentifierManager.shared().advertisingIdentifier.uuidString
+        }
+        let status = await ATTrackingManager.requestTrackingAuthorization()
+        return status == .authorized ? ASIdentifierManager.shared().advertisingIdentifier.uuidString : nil
+    }
+    
+    @MainActor
+    private func waitForActiveState() async {
+        guard UIApplication.shared.applicationState != .active else { return }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let holder = SweetHolder<NSObjectProtocol?>(nil)
+            holder.value = NotificationCenter.default.addObserver(
+                forName: UIApplication.didBecomeActiveNotification,
+                object: nil,
+                queue: .main
+            ) { _ in
+                if let obs = holder.value {
+                    NotificationCenter.default.removeObserver(obs)
+                }
+                continuation.resume()
+            }
+        }
+    }
+    
+    func requestNotificationAccess() async -> Bool {
+        await withCheckedContinuation { continuation in
+            OneSignal.Notifications.requestPermission({ accepted in
+                continuation.resume(returning: accepted)
+            }, fallbackToSettings: false)
+        }
+    }
+}
+
+final class SweetHolder<T>: @unchecked Sendable {
+    var value: T
+    init(_ value: T) { self.value = value }
+}
 
 struct ManagerService {
     private let statisticKey = "statistic"
